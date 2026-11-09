@@ -36,16 +36,38 @@ type itemResource struct {
 }
 
 type itemFieldModel struct {
-	ID        tfsdk.String `tfsdk:"id"`
-	Title     tfsdk.String `tfsdk:"title"`
-	SectionID tfsdk.String `tfsdk:"section_id"`
-	FieldType tfsdk.String `tfsdk:"type"`
-	Value     tfsdk.String `tfsdk:"value"`
+	ID        tfsdk.String           `tfsdk:"id"`
+	Title     tfsdk.String           `tfsdk:"title"`
+	SectionID tfsdk.String           `tfsdk:"section_id"`
+	FieldType tfsdk.String           `tfsdk:"type"`
+	Value     tfsdk.String           `tfsdk:"value"`
+	Address   *itemFieldAddressModel `tfsdk:"address"`
+	SSHKey    *itemFieldSSHKeyModel  `tfsdk:"ssh_key"`
+}
+
+type itemFieldAddressModel struct {
+	Street  tfsdk.String `tfsdk:"street"`
+	City    tfsdk.String `tfsdk:"city"`
+	State   tfsdk.String `tfsdk:"state"`
+	Zip     tfsdk.String `tfsdk:"zip"`
+	Country tfsdk.String `tfsdk:"country"`
+}
+
+type itemFieldSSHKeyModel struct {
+	PublicKey   tfsdk.String `tfsdk:"public_key"`
+	Fingerprint tfsdk.String `tfsdk:"fingerprint"`
+	KeyType     tfsdk.String `tfsdk:"key_type"`
 }
 
 type itemSectionModel struct {
 	ID    tfsdk.String `tfsdk:"id"`
 	Title tfsdk.String `tfsdk:"title"`
+}
+
+type itemWebsiteModel struct {
+	URL              tfsdk.String `tfsdk:"url"`
+	Label            tfsdk.String `tfsdk:"label"`
+	AutofillBehavior tfsdk.String `tfsdk:"autofill_behavior"`
 }
 
 type itemResourceModel struct {
@@ -59,6 +81,7 @@ type itemResourceModel struct {
 	Sections   []itemSectionModel `tfsdk:"sections"`
 	Version    tfsdk.Int64        `tfsdk:"version"`
 	DeleteMode tfsdk.String       `tfsdk:"delete_mode"`
+	Websites   []itemWebsiteModel `tfsdk:"websites"`
 }
 
 func (r *itemResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -118,8 +141,9 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.StringAttribute{
+							Optional:            true,
 							Computed:            true,
-							MarkdownDescription: "Field ID.",
+							MarkdownDescription: "Field ID. Set to a built-in field ID (e.g. `username`, `password`) where applicable; otherwise computed.",
 							PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 						},
 						"title": schema.StringAttribute{
@@ -143,7 +167,27 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						"value": schema.StringAttribute{
 							Optional:            true,
 							Sensitive:           true,
-							MarkdownDescription: "Field value. Treated as sensitive.",
+							MarkdownDescription: "Field value, treated as sensitive. Constraints: `Date` fields must be `YYYY-MM-DD`; `MonthYear` must be `MM/YYYY`; `Reference` must be a 26-character item ID in the same vault; `SshKey` must be a decrypted PEM private key (one per SshKey-category item); `Totp` accepts an `otpauth://` URI.",
+						},
+						"address": schema.SingleNestedAttribute{
+							Optional:            true,
+							MarkdownDescription: "Address details; required for `Address` fields (the value is derived from these).",
+							Attributes: map[string]schema.Attribute{
+								"street":  schema.StringAttribute{Required: true, MarkdownDescription: "Street."},
+								"city":    schema.StringAttribute{Required: true, MarkdownDescription: "City."},
+								"state":   schema.StringAttribute{Optional: true, MarkdownDescription: "State."},
+								"zip":     schema.StringAttribute{Optional: true, MarkdownDescription: "ZIP / postal code."},
+								"country": schema.StringAttribute{Required: true, MarkdownDescription: "Country."},
+							},
+						},
+						"ssh_key": schema.SingleNestedAttribute{
+							Computed:            true,
+							MarkdownDescription: "SSH key attributes computed by 1Password for `SshKey` fields.",
+							Attributes: map[string]schema.Attribute{
+								"public_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "Public key."},
+								"fingerprint": schema.StringAttribute{Computed: true, MarkdownDescription: "Key fingerprint."},
+								"key_type":    schema.StringAttribute{Computed: true, MarkdownDescription: "Key type, e.g. `Ed25519` or `RSA, 4096-bit`."},
+							},
 						},
 					},
 				},
@@ -168,6 +212,17 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"version": schema.Int64Attribute{
 				Computed:            true,
 				MarkdownDescription: "Item version.",
+			},
+			"websites": schema.ListNestedAttribute{
+				Optional:            true,
+				MarkdownDescription: "Websites for autofill (Login and Password categories).",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"url":               schema.StringAttribute{Required: true, MarkdownDescription: "Website URL."},
+						"label":             schema.StringAttribute{Optional: true, MarkdownDescription: "Website label, e.g. 'website'."},
+						"autofill_behavior": schema.StringAttribute{Optional: true, MarkdownDescription: "One of AnywhereOnWebsite, ExactDomain, Never."},
+					},
+				},
 			},
 			"delete_mode": schema.StringAttribute{
 				Optional:            true,
@@ -204,6 +259,7 @@ func (r *itemResource) Create(ctx context.Context, req resource.CreateRequest, r
 	params.Tags = tags
 	params.Fields = sdkFieldsFromModel(data.Fields)
 	params.Sections = sdkSectionsFromModel(data.Sections)
+	params.Websites = sdkWebsitesFromModel(data.Websites)
 
 	item, err := r.client.Items().Create(ctx, params)
 	if err != nil {
@@ -270,6 +326,7 @@ func (r *itemResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	item.Tags = tags
 	item.Fields = sdkFieldsFromModel(plan.Fields)
 	item.Sections = sdkSectionsFromModel(plan.Sections)
+	item.Websites = sdkWebsitesFromModel(plan.Websites)
 
 	updated, err := r.client.Items().Put(ctx, item)
 	if isNotFound(err) {
@@ -329,6 +386,7 @@ func sdkFieldsFromModel(models []itemFieldModel) []onepassword.ItemField {
 	fields := make([]onepassword.ItemField, 0, len(models))
 	for _, f := range models {
 		field := onepassword.ItemField{
+			ID:        f.ID.ValueString(),
 			Title:     f.Title.ValueString(),
 			FieldType: onepassword.ItemFieldType(f.FieldType.ValueString()),
 			Value:     f.Value.ValueString(),
@@ -336,6 +394,16 @@ func sdkFieldsFromModel(models []itemFieldModel) []onepassword.ItemField {
 		if !f.SectionID.IsNull() {
 			sectionID := f.SectionID.ValueString()
 			field.SectionID = &sectionID
+		}
+		if f.Address != nil {
+			details := onepassword.NewItemFieldDetailsTypeVariantAddress(&onepassword.AddressFieldDetails{
+				Street:  f.Address.Street.ValueString(),
+				City:    f.Address.City.ValueString(),
+				State:   f.Address.State.ValueString(),
+				Zip:     f.Address.Zip.ValueString(),
+				Country: f.Address.Country.ValueString(),
+			})
+			field.Details = &details
 		}
 		fields = append(fields, field)
 	}
@@ -378,6 +446,24 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		if f.SectionID != nil {
 			field.SectionID = tfsdk.StringValue(*f.SectionID)
 		}
+		if f.Details != nil {
+			if address := f.Details.Address(); address != nil {
+				field.Address = &itemFieldAddressModel{
+					Street:  tfsdk.StringValue(address.Street),
+					City:    tfsdk.StringValue(address.City),
+					State:   tfsdk.StringValue(address.State),
+					Zip:     tfsdk.StringValue(address.Zip),
+					Country: tfsdk.StringValue(address.Country),
+				}
+			}
+			if sshKey := f.Details.SSHKey(); sshKey != nil {
+				field.SSHKey = &itemFieldSSHKeyModel{
+					PublicKey:   tfsdk.StringValue(sshKey.PublicKey),
+					Fingerprint: tfsdk.StringValue(sshKey.Fingerprint),
+					KeyType:     tfsdk.StringValue(sshKey.KeyType),
+				}
+			}
+		}
 		fields = append(fields, field)
 	}
 	data.Fields = fields
@@ -390,5 +476,30 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		})
 	}
 	data.Sections = sections
+	data.Websites = modelWebsitesFromSDK(item.Websites)
 	return diags
+}
+
+func modelWebsitesFromSDK(websites []onepassword.Website) []itemWebsiteModel {
+	out := make([]itemWebsiteModel, 0, len(websites))
+	for _, w := range websites {
+		out = append(out, itemWebsiteModel{
+			URL:              tfsdk.StringValue(w.URL),
+			Label:            tfsdk.StringValue(w.Label),
+			AutofillBehavior: tfsdk.StringValue(string(w.AutofillBehavior)),
+		})
+	}
+	return out
+}
+
+func sdkWebsitesFromModel(models []itemWebsiteModel) []onepassword.Website {
+	websites := make([]onepassword.Website, 0, len(models))
+	for _, w := range models {
+		websites = append(websites, onepassword.Website{
+			URL:              w.URL.ValueString(),
+			Label:            w.Label.ValueString(),
+			AutofillBehavior: onepassword.AutofillBehavior(w.AutofillBehavior.ValueString()),
+		})
+	}
+	return websites
 }

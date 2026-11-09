@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/1password/onepassword-sdk-go"
+	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -126,6 +127,8 @@ func (p *onepasswordProvider) Configure(ctx context.Context, req provider.Config
 
 	resp.ResourceData = client
 	resp.DataSourceData = client
+	resp.EphemeralResourceData = client
+	resp.ActionData = client
 }
 
 func (p *onepasswordProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -140,6 +143,15 @@ func (p *onepasswordProvider) DataSources(_ context.Context) []func() datasource
 		NewVaultDataSource,
 		NewVaultsDataSource,
 		NewItemDataSource,
+		NewItemsDataSource,
+		NewGroupDataSource,
+		NewEnvironmentVariablesDataSource,
+	}
+}
+
+func (p *onepasswordProvider) Actions(_ context.Context) []func() action.Action {
+	return []func() action.Action{
+		NewGeneratePasswordAction,
 	}
 }
 

@@ -28,6 +28,7 @@ Manages a 1Password item.
 - `notes` (String) Item notes.
 - `sections` (Attributes List) Item sections. (see [below for nested schema](#nestedatt--sections))
 - `tags` (List of String) Item tags.
+- `websites` (Attributes List) Websites for autofill (Login and Password categories). (see [below for nested schema](#nestedatt--websites))
 
 ### Read-Only
 
@@ -43,13 +44,40 @@ Required:
 
 Optional:
 
+- `address` (Attributes) Address details; required for `Address` fields (the value is derived from these). (see [below for nested schema](#nestedatt--fields--address))
+- `id` (String) Field ID. Set to a built-in field ID (e.g. `username`, `password`) where applicable; otherwise computed.
 - `section_id` (String) Section the field belongs to.
 - `type` (String) Field type, e.g. `Text`, `Concealed`, `Totp`, `Url`.
-- `value` (String, Sensitive) Field value. Treated as sensitive.
+- `value` (String, Sensitive) Field value, treated as sensitive. Constraints: `Date` fields must be `YYYY-MM-DD`; `MonthYear` must be `MM/YYYY`; `Reference` must be a 26-character item ID in the same vault; `SshKey` must be a decrypted PEM private key (one per SshKey-category item); `Totp` accepts an `otpauth://` URI.
 
 Read-Only:
 
-- `id` (String) Field ID.
+- `ssh_key` (Attributes) SSH key attributes computed by 1Password for `SshKey` fields. (see [below for nested schema](#nestedatt--fields--ssh_key))
+
+<a id="nestedatt--fields--address"></a>
+### Nested Schema for `fields.address`
+
+Required:
+
+- `city` (String) City.
+- `country` (String) Country.
+- `street` (String) Street.
+
+Optional:
+
+- `state` (String) State.
+- `zip` (String) ZIP / postal code.
+
+
+<a id="nestedatt--fields--ssh_key"></a>
+### Nested Schema for `fields.ssh_key`
+
+Read-Only:
+
+- `fingerprint` (String) Key fingerprint.
+- `key_type` (String) Key type, e.g. `Ed25519` or `RSA, 4096-bit`.
+- `public_key` (String) Public key.
+
 
 
 <a id="nestedatt--sections"></a>
@@ -62,3 +90,16 @@ Required:
 Read-Only:
 
 - `id` (String) Section ID.
+
+
+<a id="nestedatt--websites"></a>
+### Nested Schema for `websites`
+
+Required:
+
+- `url` (String) Website URL.
+
+Optional:
+
+- `autofill_behavior` (String) One of AnywhereOnWebsite, ExactDomain, Never.
+- `label` (String) Website label, e.g. 'website'.

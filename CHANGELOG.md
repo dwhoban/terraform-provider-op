@@ -2,6 +2,9 @@
 
 FEATURES:
 
+- resource/op_item: generate_ssh_key (ed25519, rsa2048, rsa3072, rsa4096) generates the private key and lets 1Password derive public key/fingerprint/key type; validated with a live apply
+- resource/op_item: fix crash and plan/state inconsistencies (SDK details variant dispatch, null normalization for tags/sections/notes/websites, Optional+Computed fields/sections)
+
 - action/op_generate_password: generate random, PIN, or memorable passwords and write them into an item field
 - data-source/op_items: list items in a vault with optional archived filter
 - data-source/op_group: retrieve a group

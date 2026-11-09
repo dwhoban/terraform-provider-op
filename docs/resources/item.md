@@ -25,6 +25,7 @@ Manages a 1Password item.
 
 - `delete_mode` (String) Destroy behavior: `delete` permanently deletes the item, `archive` archives it instead.
 - `fields` (Attributes List) Item fields. (see [below for nested schema](#nestedatt--fields))
+- `generate_ssh_key` (String) Generate a new private key of this type (ed25519, rsa2048, rsa3072, rsa4096) and store it in the item's private key field; 1Password derives the public key, fingerprint, and key type. Only for SshKey items. Changing this replaces the item.
 - `notes` (String) Item notes.
 - `sections` (Attributes List) Item sections. (see [below for nested schema](#nestedatt--sections))
 - `tags` (List of String) Item tags.
@@ -48,7 +49,7 @@ Optional:
 - `id` (String) Field ID. Set to a built-in field ID (e.g. `username`, `password`) where applicable; otherwise computed.
 - `section_id` (String) Section the field belongs to.
 - `type` (String) Field type, e.g. `Text`, `Concealed`, `Totp`, `Url`.
-- `value` (String, Sensitive) Field value, treated as sensitive. Constraints: `Date` fields must be `YYYY-MM-DD`; `MonthYear` must be `MM/YYYY`; `Reference` must be a 26-character item ID in the same vault; `SshKey` must be a decrypted PEM private key (the SDK cannot generate key pairs — unlike the 1Password app/CLI, an SshKey item created through the SDK without a key field stays empty; pair with `tls_private_key` to generate) (one per SshKey-category item); `Totp` accepts an `otpauth://` URI.
+- `value` (String, Sensitive) Field value, treated as sensitive. Constraints: `Date` fields must be `YYYY-MM-DD`; `MonthYear` must be `MM/YYYY`; `Reference` must be a 26-character item ID in the same vault; `SshKey` must be a decrypted PEM private key (one per SshKey-category item); `Totp` accepts an `otpauth://` URI.
 
 Read-Only:
 

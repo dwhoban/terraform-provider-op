@@ -20,6 +20,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	tfsdk "github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
@@ -37,13 +38,13 @@ type itemResource struct {
 }
 
 type itemFieldModel struct {
-	ID        tfsdk.String           `tfsdk:"id"`
-	Title     tfsdk.String           `tfsdk:"title"`
-	SectionID tfsdk.String           `tfsdk:"section_id"`
-	FieldType tfsdk.String           `tfsdk:"type"`
-	Value     tfsdk.String           `tfsdk:"value"`
-	Address   *itemFieldAddressModel `tfsdk:"address"`
-	SSHKey    *itemFieldSSHKeyModel  `tfsdk:"ssh_key"`
+	ID        tfsdk.String `tfsdk:"id"`
+	Title     tfsdk.String `tfsdk:"title"`
+	SectionID tfsdk.String `tfsdk:"section_id"`
+	FieldType tfsdk.String `tfsdk:"type"`
+	Value     tfsdk.String `tfsdk:"value"`
+	Address   tfsdk.Object `tfsdk:"address"`
+	SSHKey    tfsdk.Object `tfsdk:"ssh_key"`
 }
 
 type itemFieldAddressModel struct {
@@ -147,7 +148,6 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 							Optional:            true,
 							Computed:            true,
 							MarkdownDescription: "Field ID. Set to a built-in field ID (e.g. `username`, `password`) where applicable; otherwise computed.",
-							PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 						},
 						"title": schema.StringAttribute{
 							Required:            true,
@@ -169,6 +169,7 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						},
 						"value": schema.StringAttribute{
 							Optional:            true,
+							Computed:            true,
 							Sensitive:           true,
 							MarkdownDescription: "Field value, treated as sensitive. Constraints: `Date` fields must be `YYYY-MM-DD`; `MonthYear` must be `MM/YYYY`; `Reference` must be a 26-character item ID in the same vault; `SshKey` must be a decrypted PEM private key (one per SshKey-category item); `Totp` accepts an `otpauth://` URI.",
 						},
@@ -236,10 +237,8 @@ func (r *itemResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"delete_mode": schema.StringAttribute{
 				Optional:            true,
-				Computed:            true,
-				Default:             stringdefault.StaticString("delete"),
-				MarkdownDescription: "Destroy behavior: `delete` permanently deletes the item, `archive` archives it instead.",
-				Validators:          []validator.String{stringvalidator.OneOf("delete", "archive")},
+				MarkdownDescription: "Destroy behavior: `delete` (default) permanently deletes the item, `archive` archives it instead.",
+				Validators:          []validator.String{stringvalidator.OneOf("", "delete", "archive")},
 			},
 		},
 	}
@@ -274,7 +273,7 @@ func (r *itemResource) Create(ctx context.Context, req resource.CreateRequest, r
 			return
 		}
 	}
-	params.Fields = sdkFieldsFromModel(planFields)
+	params.Fields = sdkFieldsFromModel(ctx, planFields)
 	var planSections []itemSectionModel
 	if !data.Sections.IsUnknown() && !data.Sections.IsNull() {
 		resp.Diagnostics.Append(data.Sections.ElementsAs(ctx, &planSections, false)...)
@@ -369,7 +368,7 @@ func (r *itemResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			return
 		}
 	}
-	item.Fields = sdkFieldsFromModel(updateFields)
+	item.Fields = sdkFieldsFromModel(ctx, updateFields)
 	var updateSections []itemSectionModel
 	if !plan.Sections.IsUnknown() && !plan.Sections.IsNull() {
 		resp.Diagnostics.Append(plan.Sections.ElementsAs(ctx, &updateSections, false)...)
@@ -378,6 +377,26 @@ func (r *itemResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 	}
 	item.Sections = sdkSectionsFromModel(updateSections)
+
+	current, err := r.client.Items().Get(ctx, state.VaultID.ValueString(), state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading Item before update", err.Error())
+		return
+	}
+	idsByTitle := map[string]string{}
+	for _, cf := range current.Fields {
+		if cf.ID != "" {
+			idsByTitle[cf.Title] = cf.ID
+		}
+	}
+	for i := range item.Fields {
+		if item.Fields[i].ID == "" {
+			item.Fields[i].ID = idsByTitle[item.Fields[i].Title]
+		}
+	}
+	item.CreatedAt = current.CreatedAt
+	item.UpdatedAt = current.UpdatedAt
+	item.Version = current.Version
 	item.Websites = sdkWebsitesFromModel(plan.Websites)
 
 	updated, err := r.client.Items().Put(ctx, item)
@@ -434,11 +453,22 @@ func (r *itemResource) ImportState(ctx context.Context, req resource.ImportState
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }
 
-func sdkFieldsFromModel(models []itemFieldModel) []onepassword.ItemField {
+func sdkFieldsFromModel(ctx context.Context, models []itemFieldModel) []onepassword.ItemField {
 	fields := make([]onepassword.ItemField, 0, len(models))
+	seen := map[string]int{}
 	for _, f := range models {
+		id := f.ID.ValueString()
+		if id == "" {
+			id = fieldIDFromTitle(f.Title.ValueString())
+			if n, dup := seen[id]; dup {
+				seen[id] = n + 1
+				id = fmt.Sprintf("%s_%d", id, n+1)
+			} else {
+				seen[id] = 1
+			}
+		}
 		field := onepassword.ItemField{
-			ID:        f.ID.ValueString(),
+			ID:        id,
 			Title:     f.Title.ValueString(),
 			FieldType: onepassword.ItemFieldType(f.FieldType.ValueString()),
 			Value:     f.Value.ValueString(),
@@ -447,19 +477,30 @@ func sdkFieldsFromModel(models []itemFieldModel) []onepassword.ItemField {
 			sectionID := f.SectionID.ValueString()
 			field.SectionID = &sectionID
 		}
-		if f.Address != nil {
+		if !f.Address.IsNull() && !f.Address.IsUnknown() {
+			var addr itemFieldAddressModel
+			diags := f.Address.As(ctx, &addr, basetypes.ObjectAsOptions{})
+			_ = diags
 			details := onepassword.NewItemFieldDetailsTypeVariantAddress(&onepassword.AddressFieldDetails{
-				Street:  f.Address.Street.ValueString(),
-				City:    f.Address.City.ValueString(),
-				State:   f.Address.State.ValueString(),
-				Zip:     f.Address.Zip.ValueString(),
-				Country: f.Address.Country.ValueString(),
+				Street:  addr.Street.ValueString(),
+				City:    addr.City.ValueString(),
+				State:   addr.State.ValueString(),
+				Zip:     addr.Zip.ValueString(),
+				Country: addr.Country.ValueString(),
 			})
 			field.Details = &details
 		}
 		fields = append(fields, field)
 	}
 	return fields
+}
+
+func fieldIDFromTitle(title string) string {
+	slug := strings.ToLower(strings.Join(strings.Fields(title), "_"))
+	if slug == "" {
+		slug = "field"
+	}
+	return slug
 }
 
 func sdkSectionsFromModel(models []itemSectionModel) []onepassword.ItemSection {
@@ -492,49 +533,50 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		data.Tags = tagsList
 	}
 
-	fields := make([]itemFieldModel, 0, len(item.Fields))
+	fieldObjType := tfsdk.ObjectType{AttrTypes: itemFieldObjectAttrs()}
+	var fieldObjs []attr.Value
 	for _, f := range item.Fields {
-		field := itemFieldModel{
-			ID:        tfsdk.StringValue(f.ID),
-			Title:     tfsdk.StringValue(f.Title),
-			FieldType: tfsdk.StringValue(string(f.FieldType)),
-			Value:     tfsdk.StringValue(f.Value),
-		}
+		sectionID := tfsdk.StringNull()
 		if f.SectionID != nil {
-			field.SectionID = tfsdk.StringValue(*f.SectionID)
+			sectionID = tfsdk.StringValue(*f.SectionID)
 		}
+		address := tfsdk.ObjectNull(itemAddressObjectAttrs())
+		sshKey := tfsdk.ObjectNull(itemSSHKeyObjectAttrs())
 		if f.Details != nil {
-			// The SDK's variant accessors panic when called on a different
-			// variant, so dispatch on the discriminator first.
 			switch f.Details.Type {
 			case onepassword.ItemFieldDetailsTypeVariantAddress:
-				if address := f.Details.Address(); address != nil {
-					field.Address = &itemFieldAddressModel{
-						Street:  tfsdk.StringValue(address.Street),
-						City:    tfsdk.StringValue(address.City),
-						State:   tfsdk.StringValue(address.State),
-						Zip:     tfsdk.StringValue(address.Zip),
-						Country: tfsdk.StringValue(address.Country),
-					}
+				if a := f.Details.Address(); a != nil {
+					address = tfsdk.ObjectValueMust(itemAddressObjectAttrs(), map[string]attr.Value{
+						"street": tfsdk.StringValue(a.Street), "city": tfsdk.StringValue(a.City), "state": tfsdk.StringValue(a.State),
+						"zip": tfsdk.StringValue(a.Zip), "country": tfsdk.StringValue(a.Country),
+					})
 				}
 			case onepassword.ItemFieldDetailsTypeVariantSSHKey:
-				if sshKey := f.Details.SSHKey(); sshKey != nil {
-					field.SSHKey = &itemFieldSSHKeyModel{
-						PublicKey:   tfsdk.StringValue(sshKey.PublicKey),
-						Fingerprint: tfsdk.StringValue(sshKey.Fingerprint),
-						KeyType:     tfsdk.StringValue(sshKey.KeyType),
-					}
+				if k := f.Details.SSHKey(); k != nil {
+					sshKey = tfsdk.ObjectValueMust(itemSSHKeyObjectAttrs(), map[string]attr.Value{
+						"public_key": tfsdk.StringValue(k.PublicKey), "fingerprint": tfsdk.StringValue(k.Fingerprint), "key_type": tfsdk.StringValue(k.KeyType),
+					})
 				}
 			}
 		}
-		fields = append(fields, field)
+		obj, diags := tfsdk.ObjectValue(fieldObjType.AttrTypes, map[string]attr.Value{
+			"id":         tfsdk.StringValue(f.ID),
+			"title":      tfsdk.StringValue(f.Title),
+			"section_id": sectionID,
+			"type":       tfsdk.StringValue(string(f.FieldType)),
+			"value":      tfsdk.StringValue(f.Value),
+			"address":    address,
+			"ssh_key":    sshKey,
+		})
+		result = append(result, diags...)
+		fieldObjs = append(fieldObjs, obj)
 	}
-	if len(fields) > 0 {
-		fieldList, diags := tfsdk.ListValueFrom(ctx, tfsdk.ObjectType{AttrTypes: itemFieldObjectAttrs()}, fields)
+	if len(fieldObjs) > 0 {
+		fieldList, diags := tfsdk.ListValue(fieldObjType, fieldObjs)
 		result = append(result, diags...)
 		data.Fields = fieldList
 	} else {
-		data.Fields = tfsdk.ListNull(tfsdk.ObjectType{AttrTypes: itemFieldObjectAttrs()})
+		data.Fields = tfsdk.ListNull(fieldObjType)
 	}
 
 	var sections []itemSectionModel
@@ -583,6 +625,19 @@ func sdkWebsitesFromModel(models []itemWebsiteModel) []onepassword.Website {
 		})
 	}
 	return websites
+}
+
+func itemAddressObjectAttrs() map[string]attr.Type {
+	return map[string]attr.Type{
+		"street": tfsdk.StringType, "city": tfsdk.StringType, "state": tfsdk.StringType,
+		"zip": tfsdk.StringType, "country": tfsdk.StringType,
+	}
+}
+
+func itemSSHKeyObjectAttrs() map[string]attr.Type {
+	return map[string]attr.Type{
+		"public_key": tfsdk.StringType, "fingerprint": tfsdk.StringType, "key_type": tfsdk.StringType,
+	}
 }
 
 func itemFieldObjectAttrs() map[string]attr.Type {

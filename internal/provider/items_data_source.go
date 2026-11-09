@@ -124,7 +124,7 @@ func (d *itemsDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		obj, diags := types.ObjectValueFrom(ctx, objType.AttrTypes, map[string]attr.Value{
+		obj, diags := types.ObjectValue(objType.AttrTypes, map[string]attr.Value{
 			"id":       types.StringValue(overview.ID),
 			"title":    types.StringValue(overview.Title),
 			"category": types.StringValue(string(overview.Category)),
@@ -139,7 +139,7 @@ func (d *itemsDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		objects = append(objects, obj)
 	}
 
-	list, diags := types.ListValueFrom(ctx, objType, objects)
+	list, diags := types.ListValue(objType, objects)
 	resp.Diagnostics.Append(diags...)
 	data.Items = list
 

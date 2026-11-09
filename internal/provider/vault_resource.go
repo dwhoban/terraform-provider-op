@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/1password/onepassword-sdk-go"
+	stringvalidator "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	tfsdk "github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -76,6 +78,7 @@ func (r *vaultResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"title": schema.StringAttribute{
 				Required:            true,
 				MarkdownDescription: "Vault title.",
+				Validators:          []validator.String{stringvalidator.LengthAtLeast(1)},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
@@ -214,7 +217,11 @@ func (r *vaultResource) ImportState(ctx context.Context, req resource.ImportStat
 func setVaultResourceState(data *vaultResourceModel, vault onepassword.Vault) {
 	data.ID = tfsdk.StringValue(vault.ID)
 	data.Title = tfsdk.StringValue(vault.Title)
-	data.Description = tfsdk.StringValue(vault.Description)
+	if vault.Description == "" {
+		data.Description = tfsdk.StringNull()
+	} else {
+		data.Description = tfsdk.StringValue(vault.Description)
+	}
 	data.VaultType = tfsdk.StringValue(string(vault.VaultType))
 	data.ActiveItemCount = tfsdk.Int64Value(int64(vault.ActiveItemCount))
 	data.ContentVersion = tfsdk.Int64Value(int64(vault.ContentVersion))

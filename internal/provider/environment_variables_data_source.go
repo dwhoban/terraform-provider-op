@@ -98,7 +98,7 @@ func (d *environmentVariablesDataSource) Read(ctx context.Context, req datasourc
 	objType := types.ObjectType{AttrTypes: environmentVariableAttrs}
 	objects := make([]attr.Value, 0, len(result.Variables))
 	for _, v := range result.Variables {
-		obj, diags := types.ObjectValueFrom(ctx, objType.AttrTypes, map[string]attr.Value{
+		obj, diags := types.ObjectValue(objType.AttrTypes, map[string]attr.Value{
 			"name":   types.StringValue(v.Name),
 			"value":  types.StringValue(v.Value),
 			"masked": types.BoolValue(v.Masked),
@@ -110,7 +110,7 @@ func (d *environmentVariablesDataSource) Read(ctx context.Context, req datasourc
 		objects = append(objects, obj)
 	}
 
-	list, diags := types.ListValueFrom(ctx, objType, objects)
+	list, diags := types.ListValue(objType, objects)
 	resp.Diagnostics.Append(diags...)
 	data.Variables = list
 

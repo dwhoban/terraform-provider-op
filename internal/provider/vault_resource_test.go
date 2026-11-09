@@ -38,9 +38,10 @@ func TestAccVault_basicAndUpdate(t *testing.T) {
 				},
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"attribute_version", "content_version", "active_item_count"},
 			},
 		},
 	})

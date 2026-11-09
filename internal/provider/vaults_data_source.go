@@ -101,7 +101,7 @@ func (d *vaultsDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	objects := make([]attr.Value, 0, len(overviews))
 	for _, overview := range overviews {
 		objTypes := types.ObjectType{AttrTypes: vaultOverviewAttrs}
-		obj, diags := types.ObjectValueFrom(ctx, objTypes.AttrTypes, map[string]attr.Value{
+		obj, diags := types.ObjectValue(objTypes.AttrTypes, map[string]attr.Value{
 			"id":                types.StringValue(overview.ID),
 			"title":             types.StringValue(overview.Title),
 			"description":       types.StringValue(overview.Description),
@@ -117,7 +117,7 @@ func (d *vaultsDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		objects = append(objects, obj)
 	}
 
-	list, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vaultOverviewAttrs}, objects)
+	list, diags := types.ListValue(types.ObjectType{AttrTypes: vaultOverviewAttrs}, objects)
 	resp.Diagnostics.Append(diags...)
 	data.Vaults = list
 

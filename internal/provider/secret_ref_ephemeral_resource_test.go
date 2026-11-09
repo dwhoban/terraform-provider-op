@@ -13,22 +13,48 @@ import (
 
 func TestAccSecretRef_ephemeral(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	vaultID := testAccVaultID(t)
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSecretRefConfig(rName),
+				Config: testAccSecretRefItemConfig(vaultID, rName),
+			},
+			{
+				Config: testAccSecretRefConfig(vaultID, rName),
 			},
 		},
 	})
 }
 
-func testAccSecretRefConfig(rName string) string {
+func testAccSecretRefItemConfig(vaultID, rName string) string {
 	return fmt.Sprintf(`
-ephemeral "op_secret_ref" "ref" {
-  reference = "op://tf-test-vault/%[1]s/password"
+resource "op_item" "test" {
+  vault_id = %[1]q
+  title    = %[2]q
+  category = "Password"
+  fields = [
+    { id = "password", title = "password", type = "Concealed", value = "hunter2" },
+  ]
 }
-`, rName)
+`, vaultID, rName)
+}
+
+func testAccSecretRefConfig(vaultID, rName string) string {
+	return fmt.Sprintf(`
+resource "op_item" "test" {
+  vault_id = %[1]q
+  title    = %[2]q
+  category = "Password"
+  fields = [
+    { id = "password", title = "password", type = "Concealed", value = "hunter2" },
+  ]
+}
+
+ephemeral "op_secret_ref" "ref" {
+  reference = "op://%[1]s/%[2]s/password"
+}
+`, vaultID, rName)
 }

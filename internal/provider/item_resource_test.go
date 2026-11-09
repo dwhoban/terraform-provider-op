@@ -16,7 +16,7 @@ import (
 
 func TestAccItem_basicUpdateImport(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	resourceName := "onepassword_item.test"
+	resourceName := "op_item.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -48,7 +48,7 @@ func TestAccItem_basicUpdateImport(t *testing.T) {
 
 func TestAccItem_archiveMode(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	resourceName := "onepassword_item.test"
+	resourceName := "op_item.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -67,7 +67,7 @@ func TestAccItem_archiveMode(t *testing.T) {
 
 func testAccItemConfig_basic(rName string) string {
 	return fmt.Sprintf(`
-resource "onepassword_item" "test" {
+resource "op_item" "test" {
   vault_id = "tf-test-vault"
   title    = %[1]q
   category = "Login"
@@ -77,7 +77,7 @@ resource "onepassword_item" "test" {
 
 func testAccItemConfig_fields(rName, username string) string {
 	return fmt.Sprintf(`
-resource "onepassword_item" "test" {
+resource "op_item" "test" {
   vault_id = "tf-test-vault"
   title    = %[1]q
   category = "Login"
@@ -92,7 +92,7 @@ resource "onepassword_item" "test" {
 
 func testAccItemConfig_archive(rName string) string {
 	return fmt.Sprintf(`
-resource "onepassword_item" "test" {
+resource "op_item" "test" {
   vault_id    = "tf-test-vault"
   title       = %[1]q
   category    = "SecureNote"

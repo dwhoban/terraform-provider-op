@@ -1,3 +1,3 @@
 #!/bin/bash
 # Import a vault by its ID:
-terraform import onepassword_vault.infra <vault-id>
+terraform import op_vault.infra <vault-id>

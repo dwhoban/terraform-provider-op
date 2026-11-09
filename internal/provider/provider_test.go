@@ -14,7 +14,7 @@ import (
 )
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"onepassword": providerserver.NewProtocol6WithError(New("test")()),
+	"op": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {

@@ -37,7 +37,7 @@ type onepasswordProviderModel struct {
 }
 
 func (p *onepasswordProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "onepassword"
+	resp.TypeName = "op"
 	resp.Version = p.version
 }
 
@@ -55,7 +55,7 @@ func (p *onepasswordProvider) Schema(ctx context.Context, _ provider.SchemaReque
 			},
 			"integration_name": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "Integration name reported to 1Password. Defaults to `terraform-provider-onepassword`.",
+				MarkdownDescription: "Integration name reported to 1Password. Defaults to `terraform-provider-op`.",
 			},
 		},
 	}
@@ -96,7 +96,7 @@ func (p *onepasswordProvider) Configure(ctx context.Context, req provider.Config
 	}
 	integrationName := config.IntegrationName.ValueString()
 	if integrationName == "" {
-		integrationName = "terraform-provider-onepassword"
+		integrationName = "terraform-provider-op"
 	}
 
 	if token == "" && desktopAccount == "" {

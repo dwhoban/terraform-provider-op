@@ -27,7 +27,7 @@ func TestAccSecretRef_ephemeral(t *testing.T) {
 
 func testAccSecretRefConfig(rName string) string {
 	return fmt.Sprintf(`
-ephemeral "onepassword_secret_ref" "ref" {
+ephemeral "op_secret_ref" "ref" {
   reference = "op://tf-test-vault/%[1]s/password"
 }
 `, rName)

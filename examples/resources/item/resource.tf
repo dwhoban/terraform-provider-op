@@ -1,5 +1,5 @@
-resource "onepassword_item" "db" {
-  vault_id = onepassword_vault.infra.id
+resource "op_item" "db" {
+  vault_id = op_vault.infra.id
   title    = "Production database"
   category = "Login"
   tags     = ["terraform", "production"]

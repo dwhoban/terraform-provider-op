@@ -9,16 +9,16 @@ A personal 1Password Terraform provider built for full compliance with the
 - **Provider auth**: 1Password service account token
   (`OP_SERVICE_ACCOUNT_TOKEN`) or desktop app integration
   (`OP_DESKTOP_ACCOUNT_NAME`).
-- **Resources**: `onepassword_vault`, `onepassword_item` (fields, sections,
+- **Resources**: `op_vault`, `op_item` (fields, sections,
   tags, notes; `delete_mode = "delete" | "archive"`).
-- **Data sources**: `onepassword_vault`, `onepassword_vaults`,
-  `onepassword_item`.
-- **Ephemeral resource**: `onepassword_secret_ref` resolves `op://` secret
+- **Data sources**: `op_vault`, `op_vaults`,
+  `op_item`.
+- **Ephemeral resource**: `op_secret_ref` resolves `op://` secret
   references without persisting values to state.
 
 ## Develop
 
-    go build -o /tmp/terraform-provider-onepassword .
+    go build -o /tmp/terraform-provider-op .
     go test ./...
 
 Acceptance tests run with `TF_ACC=1` and credentials set via

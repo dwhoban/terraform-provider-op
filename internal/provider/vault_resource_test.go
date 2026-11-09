@@ -17,7 +17,7 @@ import (
 
 func TestAccVault_basicAndUpdate(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	resourceName := "onepassword_vault.test"
+	resourceName := "op_vault.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -61,7 +61,7 @@ func TestAccVault_validation(t *testing.T) {
 
 func testAccVaultConfig_basic(rName string) string {
 	return fmt.Sprintf(`
-resource "onepassword_vault" "test" {
+resource "op_vault" "test" {
   title = %[1]q
 }
 `, rName)
@@ -69,7 +69,7 @@ resource "onepassword_vault" "test" {
 
 func testAccVaultConfig_full(rName, description string) string {
 	return fmt.Sprintf(`
-resource "onepassword_vault" "test" {
+resource "op_vault" "test" {
   title       = %[1]q
   description = %[2]q
 }

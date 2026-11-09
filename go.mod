@@ -1,4 +1,4 @@
-module github.com/dwh/terraform-provider-onepassword
+module github.com/dwhoban/terraform-provider-op
 
 go 1.25.8
 

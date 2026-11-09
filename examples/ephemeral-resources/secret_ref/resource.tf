@@ -1,4 +1,4 @@
-ephemeral "onepassword_secret_ref" "db_password" {
+ephemeral "op_secret_ref" "db_password" {
   reference = "op://Infrastructure/Production database/password"
 }
 

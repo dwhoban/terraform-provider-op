@@ -8,7 +8,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/dwh/terraform-provider-onepassword/internal/provider"
+	"github.com/dwhoban/terraform-provider-op/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -21,7 +21,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/dwh/onepassword",
+		Address: "registry.terraform.io/dwhoban/op",
 		Debug:   debug,
 	}
 

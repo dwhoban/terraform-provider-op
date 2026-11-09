@@ -55,12 +55,6 @@ type itemFieldAddressModel struct {
 	Country tfsdk.String `tfsdk:"country"`
 }
 
-type itemFieldSSHKeyModel struct {
-	PublicKey   tfsdk.String `tfsdk:"public_key"`
-	Fingerprint tfsdk.String `tfsdk:"fingerprint"`
-	KeyType     tfsdk.String `tfsdk:"key_type"`
-}
-
 type itemSectionModel struct {
 	ID    tfsdk.String `tfsdk:"id"`
 	Title tfsdk.String `tfsdk:"title"`

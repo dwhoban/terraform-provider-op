@@ -102,21 +102,6 @@ func deleteItemOutOfBand(t *testing.T, vaultID, title string) statecheck.StateCh
 	return deleteItemCheck{t: t, vault: vaultID, title: title}
 }
 
-func itemIDForTitle(t *testing.T, vaultID, title string) string {
-	t.Helper()
-	overviews, err := testAccClient(t).Items().List(context.Background(), vaultID)
-	if err != nil {
-		t.Fatalf("listing items: %s", err)
-	}
-	for _, o := range overviews {
-		if o.Title == title {
-			return o.ID
-		}
-	}
-	t.Fatalf("item %q not found in vault %s", title, vaultID)
-	return ""
-}
-
 func testAccItemConfigVault(vaultID, rName string) string {
 	return fmt.Sprintf(`
 resource "op_item" "test" {

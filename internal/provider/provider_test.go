@@ -1,34 +1,38 @@
-// Copyright IBM Corp. 2021, 2026
+// Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
 package provider
 
 import (
+	"context"
+	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-testing/echoprovider"
 )
 
-// testAccProtoV6ProviderFactories is used to instantiate a provider during acceptance testing.
-// The factory function is called for each Terraform CLI command to create a provider
-// server that the CLI can connect to and interact with.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
-}
-
-// testAccProtoV6ProviderFactoriesWithEcho includes the echo provider alongside the scaffolding provider.
-// It allows for testing assertions on data returned by an ephemeral resource during Open.
-// The echoprovider is used to arrange tests by echoing ephemeral data into the Terraform state.
-// This lets the data be referenced in test assertions with state checks.
-var testAccProtoV6ProviderFactoriesWithEcho = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
-	"echo":        echoprovider.NewProviderServer(),
+	"onepassword": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
-	// You can add code here to run prior to any test case execution, for example assertions
-	// about the appropriate environment variables being set are common to see in a pre-check
-	// function.
+	t.Helper()
+	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") == "" && os.Getenv("OP_DESKTOP_ACCOUNT_NAME") == "" {
+		t.Skip("OP_SERVICE_ACCOUNT_TOKEN or OP_DESKTOP_ACCOUNT_NAME not set; skipping acceptance test")
+	}
+}
+
+func TestProviderSchemaDescribesAuthAttributes(t *testing.T) {
+	resp := &provider.SchemaResponse{}
+	New("test")().Schema(context.Background(), provider.SchemaRequest{}, resp)
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("provider schema error: %s", resp.Diagnostics.Errors())
+	}
+	for _, name := range []string{"service_account_token", "desktop_account_name", "integration_name"} {
+		if _, ok := resp.Schema.Attributes[name]; !ok {
+			t.Errorf("schema missing auth attribute %q", name)
+		}
+	}
 }

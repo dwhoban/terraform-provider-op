@@ -1,109 +1,150 @@
-// Copyright IBM Corp. 2021, 2026
+// Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
 package provider
 
 import (
 	"context"
-	"net/http"
+	"os"
 
-	"github.com/hashicorp/terraform-plugin-framework/action"
+	"github.com/1password/onepassword-sdk-go"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
-	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure ScaffoldingProvider satisfies various provider interfaces.
-var _ provider.Provider = &ScaffoldingProvider{}
-var _ provider.ProviderWithFunctions = &ScaffoldingProvider{}
-var _ provider.ProviderWithEphemeralResources = &ScaffoldingProvider{}
-var _ provider.ProviderWithActions = &ScaffoldingProvider{}
+var _ provider.Provider = &onepasswordProvider{}
 
-// ScaffoldingProvider defines the provider implementation.
-type ScaffoldingProvider struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
+// New returns the provider factory consumed by main.go.
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &onepasswordProvider{version: version}
+	}
+}
+
+type onepasswordProvider struct {
 	version string
 }
 
-// ScaffoldingProviderModel describes the provider data model.
-type ScaffoldingProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
+type onepasswordProviderModel struct {
+	ServiceAccountToken types.String `tfsdk:"service_account_token"`
+	DesktopAccountName  types.String `tfsdk:"desktop_account_name"`
+	IntegrationName     types.String `tfsdk:"integration_name"`
 }
 
-func (p *ScaffoldingProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+func (p *onepasswordProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "onepassword"
 	resp.Version = p.version
 }
 
-func (p *ScaffoldingProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *onepasswordProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example provider attribute",
+			"service_account_token": schema.StringAttribute{
 				Optional:            true,
+				Sensitive:           true,
+				MarkdownDescription: "1Password service account token. May also be set via the `OP_SERVICE_ACCOUNT_TOKEN` environment variable. Takes precedence over desktop app integration.",
+			},
+			"desktop_account_name": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "1Password account name (or UUID) for desktop app integration. May also be set via the `OP_DESKTOP_ACCOUNT_NAME` environment variable.",
+			},
+			"integration_name": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Integration name reported to 1Password. Defaults to `terraform-provider-onepassword`.",
 			},
 		},
 	}
 }
 
-func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ScaffoldingProviderModel
-
-	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-
+func (p *onepasswordProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var config onepasswordProviderModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
+	if config.ServiceAccountToken.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("service_account_token"),
+			"Unknown service account token",
+			"service_account_token depends on a value known only after apply. Set a static value or use the OP_SERVICE_ACCOUNT_TOKEN environment variable.",
+		)
+	}
+	if config.DesktopAccountName.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("desktop_account_name"),
+			"Unknown desktop account name",
+			"desktop_account_name depends on a value known only after apply. Set a static value or use the OP_DESKTOP_ACCOUNT_NAME environment variable.",
+		)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// Example client configuration for data sources and resources
-	client := http.DefaultClient
-	resp.DataSourceData = client
+	token := config.ServiceAccountToken.ValueString()
+	if token == "" {
+		token = os.Getenv("OP_SERVICE_ACCOUNT_TOKEN")
+	}
+	desktopAccount := config.DesktopAccountName.ValueString()
+	if desktopAccount == "" {
+		desktopAccount = os.Getenv("OP_DESKTOP_ACCOUNT_NAME")
+	}
+	integrationName := config.IntegrationName.ValueString()
+	if integrationName == "" {
+		integrationName = "terraform-provider-onepassword"
+	}
+
+	if token == "" && desktopAccount == "" {
+		resp.Diagnostics.AddError(
+			"Missing 1Password credentials",
+			"Set service_account_token in the provider block or export OP_SERVICE_ACCOUNT_TOKEN, or set desktop_account_name / OP_DESKTOP_ACCOUNT_NAME for desktop app integration.",
+		)
+		return
+	}
+
+	var opts []onepassword.ClientOption
+	opts = append(opts, onepassword.WithIntegrationInfo(integrationName, p.version))
+	if token != "" {
+		opts = append(opts, onepassword.WithServiceAccountToken(token))
+	} else {
+		opts = append(opts, onepassword.WithDesktopAppIntegration(desktopAccount))
+	}
+
+	client, err := onepassword.NewClient(ctx, opts...)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to create 1Password client",
+			err.Error(),
+		)
+		return
+	}
+
 	resp.ResourceData = client
+	resp.DataSourceData = client
 }
 
-func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
+func (p *onepasswordProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewVaultResource,
+		NewItemResource,
 	}
 }
 
-func (p *ScaffoldingProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
-	}
-}
-
-func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *onepasswordProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
+		NewVaultDataSource,
+		NewVaultsDataSource,
+		NewItemDataSource,
 	}
 }
 
-func (p *ScaffoldingProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
-}
-
-func (p *ScaffoldingProvider) Actions(ctx context.Context) []func() action.Action {
-	return []func() action.Action{
-		NewExampleAction,
-	}
-}
-
-func New(version string) func() provider.Provider {
-	return func() provider.Provider {
-		return &ScaffoldingProvider{
-			version: version,
-		}
+func (p *onepasswordProvider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{
+		NewSecretRefEphemeralResource,
 	}
 }

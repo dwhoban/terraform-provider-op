@@ -232,6 +232,19 @@ func assertCustomFields(t *testing.T, attrs map[string]attr.Value, wantIDs ...st
 	}
 }
 
+// mustSpec returns the category spec with the given type name (without the
+// provider prefix), failing the test if none matches.
+func mustSpec(t *testing.T, typeName string) categorySpec {
+	t.Helper()
+	for _, s := range categoryItemSpecs {
+		if s.TypeName == typeName {
+			return s
+		}
+	}
+	t.Fatalf("no category spec %q", typeName)
+	return categorySpec{}
+}
+
 // TestCategoryItem_roundTrip drives the engine's pure conversion functions:
 // attr map → SDK fields → fake server item → state fill, for a plain
 // category (login), a multi-section category (credit_card), and ssh_key.
@@ -239,7 +252,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("login", func(t *testing.T) {
-		spec, _ := specByTypeName("item_login")
+		spec := mustSpec(t, "item_login")
 		r := &categoryItemResource{spec: spec}
 
 		attrs := nullAttrs(r.attrTypes())
@@ -252,7 +265,11 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 
 		fields := typedFieldsFromAttrs(ctx, spec, attrs)
 		var custom []itemFieldModel
-		diags := attrs["custom_fields"].(basetypes.ListValue).ElementsAs(ctx, &custom, false)
+		customList, isList := attrs["custom_fields"].(basetypes.ListValue)
+		if !isList {
+			t.Fatalf("custom_fields is %T", attrs["custom_fields"])
+		}
+		diags := customList.ElementsAs(ctx, &custom, false)
 		if diags.HasError() {
 			t.Fatalf("decode: %s", diags.Errors())
 		}
@@ -295,7 +312,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 	})
 
 	t.Run("credit_card sections", func(t *testing.T) {
-		spec, _ := specByTypeName("item_credit_card")
+		spec := mustSpec(t, "item_credit_card")
 		r := &categoryItemResource{spec: spec}
 
 		attrs := nullAttrs(r.attrTypes())
@@ -354,7 +371,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 	})
 
 	t.Run("ssh_key details", func(t *testing.T) {
-		spec, _ := specByTypeName("item_ssh_key")
+		spec := mustSpec(t, "item_ssh_key")
 		r := &categoryItemResource{spec: spec}
 
 		details := onepassword.NewItemFieldDetailsTypeVariantSSHKey(&onepassword.SSHKeyAttributes{
@@ -384,7 +401,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 	})
 
 	t.Run("identity address", func(t *testing.T) {
-		spec, _ := specByTypeName("item_identity")
+		spec := mustSpec(t, "item_identity")
 		r := &categoryItemResource{spec: spec}
 
 		attrs := nullAttrs(r.attrTypes())
@@ -434,7 +451,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 	t.Run("server-side ID case normalization", func(t *testing.T) {
 		// A server ID differing only in case still fills the typed attr and
 		// is excluded from custom_fields.
-		spec, _ := specByTypeName("item_ssh_key")
+		spec := mustSpec(t, "item_ssh_key")
 		r := &categoryItemResource{spec: spec}
 
 		item := onepassword.Item{
@@ -459,7 +476,7 @@ func TestCategoryItem_roundTrip(t *testing.T) {
 		// but ID-based custom_fields exclusion cannot see the equivalence,
 		// so the field also surfaces in custom_fields. If observed live,
 		// fix the spec's FieldID from the server value.
-		spec, _ := specByTypeName("item_driver_license")
+		spec := mustSpec(t, "item_driver_license")
 		r := &categoryItemResource{spec: spec}
 
 		item := onepassword.Item{

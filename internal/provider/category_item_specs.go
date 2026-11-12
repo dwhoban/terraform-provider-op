@@ -426,17 +426,6 @@ var categoryItemSpecs = []categorySpec{
 	},
 }
 
-// specByTypeName looks up a category spec by its Terraform type name
-// (without the provider prefix), e.g. "item_ssh_key".
-func specByTypeName(name string) (categorySpec, bool) {
-	for _, s := range categoryItemSpecs {
-		if s.TypeName == name {
-			return s, true
-		}
-	}
-	return categorySpec{}, false
-}
-
 // fieldDescription renders the schema description of a typed field.
 func fieldDescription(f categoryFieldSpec) string {
 	if f.Address {

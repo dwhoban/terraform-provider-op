@@ -288,7 +288,11 @@ func menuValueHint(typeName, fieldID string) (string, bool) {
 func (r *categoryItemResource) attrTypes() map[string]attr.Type {
 	resp := &resource.SchemaResponse{}
 	r.Schema(context.Background(), resource.SchemaRequest{}, resp)
-	return resp.Schema.Type().(basetypes.ObjectType).AttrTypes
+	objType, isObj := resp.Schema.Type().(basetypes.ObjectType)
+	if !isObj {
+		panic(fmt.Sprintf("category item schema type is %T, want basetypes.ObjectType", resp.Schema.Type()))
+	}
+	return objType.AttrTypes
 }
 
 // categoryItemCommon carries the common attributes shared with op_item,
@@ -367,7 +371,11 @@ func typedFieldsFromAttrs(ctx context.Context, spec categorySpec, attrs map[stri
 			})
 			field.Details = &details
 		} else {
-			field.Value = v.(tfsdk.String).ValueString()
+			s, isString := v.(tfsdk.String)
+			if !isString {
+				continue
+			}
+			field.Value = s.ValueString()
 		}
 		if f.SectionID != "" {
 			sectionID := f.SectionID
@@ -560,7 +568,7 @@ func setCategoryStateFromItem(ctx context.Context, spec categorySpec, attrs map[
 		}
 		customFields = append(customFields, f)
 	}
-	customList, diags := itemFieldListFromSDK(ctx, customFields)
+	customList, diags := itemFieldListFromSDK(customFields)
 	result.Append(diags...)
 	attrs["custom_fields"] = customList
 

@@ -527,7 +527,7 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		data.Tags = tagsList
 	}
 
-	fieldList, diags := itemFieldListFromSDK(ctx, item.Fields)
+	fieldList, diags := itemFieldListFromSDK(item.Fields)
 	result = append(result, diags...)
 	data.Fields = fieldList
 
@@ -542,7 +542,7 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 // itemFieldListFromSDK converts server fields into a `fields`-list value,
 // including Address/SSHKey Details handling. Returns a null list for empty
 // input.
-func itemFieldListFromSDK(ctx context.Context, fields []onepassword.ItemField) (tfsdk.List, diag.Diagnostics) {
+func itemFieldListFromSDK(fields []onepassword.ItemField) (tfsdk.List, diag.Diagnostics) {
 	var result diag.Diagnostics
 	fieldObjType := tfsdk.ObjectType{AttrTypes: itemFieldObjectAttrs()}
 	var fieldObjs []attr.Value

@@ -16,15 +16,17 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    # goreleaser-cross ships Go, goreleaser, gpg and the osxcross toolchain
+    # (o64-clang/oa64-clang) needed to build darwin binaries with CGO.
+    # Keep the tag in step with the go directive in go.mod.
+    container:
+      image: ghcr.io/goreleaser/goreleaser-cross:v1.25.8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Allow goreleaser to access older tag information.
           fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         id: import_gpg
@@ -32,9 +34,7 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
-        with:
-          args: release --clean
+        run: goreleaser release --clean
         env:
           # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

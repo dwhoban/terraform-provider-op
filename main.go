@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright (c) 2026 Dan Hoban
 // SPDX-License-Identifier: MPL-2.0
 
 package main

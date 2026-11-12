@@ -32,5 +32,5 @@ creating Document items without an attached file (deferred with
 Items.Files) and rejects every Person create ("bad request body").
 
 Supported item categories with examples: see examples/resources/item/categories/
-(23 categories; the SDK also lists Unsupported, which is not creatable).
+(21 categories; Document and Person are omitted because the API rejects creating them).
 Per-category resources cover the 21 categories excluding Document and Person.

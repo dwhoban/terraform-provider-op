@@ -1,0 +1,17 @@
+---
+page_title: "op Provider"
+description: |-
+  Provision 1Password vaults and items through the official 1Password Go SDK.
+---
+
+# op Provider
+
+Provision 1Password vaults and items through the official 1Password Go SDK
+(onepassword-sdk-go). Supports service-account tokens, desktop-app integration,
+and — when nothing is configured — the local `op` CLI's default account.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}

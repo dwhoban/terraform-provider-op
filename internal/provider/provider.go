@@ -5,7 +5,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+	"os/exec"
+	"sync"
 
 	"github.com/1password/onepassword-sdk-go"
 	"github.com/hashicorp/terraform-plugin-framework/action"
@@ -52,7 +55,7 @@ func (p *onepasswordProvider) Schema(ctx context.Context, _ provider.SchemaReque
 			},
 			"desktop_account_name": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "1Password account name (or UUID) for desktop app integration. May also be set via the `OP_DESKTOP_ACCOUNT_NAME` environment variable.",
+				MarkdownDescription: "1Password account name (or UUID) for desktop app integration. May also be set via the `OP_DESKTOP_ACCOUNT_NAME` environment variable. When unset, the local `op` CLI's default account is used.",
 			},
 			"integration_name": schema.StringAttribute{
 				Optional:            true,
@@ -101,9 +104,14 @@ func (p *onepasswordProvider) Configure(ctx context.Context, req provider.Config
 	}
 
 	if token == "" && desktopAccount == "" {
+		// Fall back to the local `op` CLI's default account so local
+		// execution needs no configuration when the desktop app is signed in.
+		desktopAccount = defaultOPAccountName()
+	}
+	if token == "" && desktopAccount == "" {
 		resp.Diagnostics.AddError(
 			"Missing 1Password credentials",
-			"Set service_account_token in the provider block or export OP_SERVICE_ACCOUNT_TOKEN, or set desktop_account_name / OP_DESKTOP_ACCOUNT_NAME for desktop app integration.",
+			"Set service_account_token in the provider block or export OP_SERVICE_ACCOUNT_TOKEN, set desktop_account_name / OP_DESKTOP_ACCOUNT_NAME for desktop app integration, or sign in to the 1Password desktop app with the `op` CLI installed.",
 		)
 		return
 	}
@@ -132,10 +140,16 @@ func (p *onepasswordProvider) Configure(ctx context.Context, req provider.Config
 }
 
 func (p *onepasswordProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
+	out := []func() resource.Resource{
 		NewVaultResource,
 		NewItemResource,
 	}
+	for _, s := range categoryItemSpecs {
+		out = append(out, func(s categorySpec) func() resource.Resource {
+			return func() resource.Resource { return NewCategoryItemResource(s) }
+		}(s))
+	}
+	return out
 }
 
 func (p *onepasswordProvider) DataSources(_ context.Context) []func() datasource.DataSource {
@@ -159,4 +173,24 @@ func (p *onepasswordProvider) EphemeralResources(_ context.Context) []func() eph
 	return []func() ephemeral.EphemeralResource{
 		NewSecretRefEphemeralResource,
 	}
+}
+
+// defaultOPAccountName returns the local `op` CLI's default account UUID,
+// or "" when the CLI is absent or lists no accounts.
+var defaultOPAccountName = sync.OnceValue(func() string {
+	out, err := exec.Command("op", "account", "list", "--format", "json").Output()
+	if err != nil {
+		return ""
+	}
+	return firstOPAccountUUID(out)
+})
+
+func firstOPAccountUUID(data []byte) string {
+	var accounts []struct {
+		AccountUUID string `json:"account_uuid"`
+	}
+	if json.Unmarshal(data, &accounts) != nil || len(accounts) == 0 {
+		return ""
+	}
+	return accounts[0].AccountUUID
 }

@@ -23,7 +23,7 @@ Manages a 1Password item.
 
 ### Optional
 
-- `delete_mode` (String) Destroy behavior: `delete` permanently deletes the item, `archive` archives it instead.
+- `delete_mode` (String) Destroy behavior: `delete` (default) permanently deletes the item, `archive` archives it instead.
 - `fields` (Attributes List) Item fields. (see [below for nested schema](#nestedatt--fields))
 - `generate_ssh_key` (String) Generate a new private key of this type (ed25519, rsa2048, rsa3072, rsa4096) and store it in the item's private key field; 1Password derives the public key, fingerprint, and key type. Only for SshKey items. Changing this replaces the item.
 - `notes` (String) Item notes.

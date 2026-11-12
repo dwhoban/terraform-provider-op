@@ -527,11 +527,28 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		data.Tags = tagsList
 	}
 
+	fieldList, diags := itemFieldListFromSDK(ctx, item.Fields)
+	result = append(result, diags...)
+	data.Fields = fieldList
+
+	sectionList, diags := itemSectionListFromSDK(ctx, item.Sections)
+	result = append(result, diags...)
+	data.Sections = sectionList
+
+	data.Websites = modelWebsitesFromSDK(item.Websites)
+	return result
+}
+
+// itemFieldListFromSDK converts server fields into a `fields`-list value,
+// including Address/SSHKey Details handling. Returns a null list for empty
+// input.
+func itemFieldListFromSDK(ctx context.Context, fields []onepassword.ItemField) (tfsdk.List, diag.Diagnostics) {
+	var result diag.Diagnostics
 	fieldObjType := tfsdk.ObjectType{AttrTypes: itemFieldObjectAttrs()}
 	var fieldObjs []attr.Value
-	for _, f := range item.Fields {
+	for _, f := range fields {
 		sectionID := tfsdk.StringNull()
-		if f.SectionID != nil {
+		if f.SectionID != nil && *f.SectionID != "" {
 			sectionID = tfsdk.StringValue(*f.SectionID)
 		}
 		address := tfsdk.ObjectNull(itemAddressObjectAttrs())
@@ -565,33 +582,34 @@ func setItemResourceState(ctx context.Context, data *itemResourceModel, item one
 		result = append(result, diags...)
 		fieldObjs = append(fieldObjs, obj)
 	}
-	if len(fieldObjs) > 0 {
-		fieldList, diags := tfsdk.ListValue(fieldObjType, fieldObjs)
-		result = append(result, diags...)
-		data.Fields = fieldList
-	} else {
-		data.Fields = tfsdk.ListNull(fieldObjType)
+	if len(fieldObjs) == 0 {
+		return tfsdk.ListNull(fieldObjType), result
 	}
+	fieldList, diags := tfsdk.ListValue(fieldObjType, fieldObjs)
+	result = append(result, diags...)
+	return fieldList, result
+}
 
-	var sections []itemSectionModel
-	for _, s := range item.Sections {
+// itemSectionListFromSDK converts server sections into a `sections`-list
+// value. Returns a null list for empty input.
+func itemSectionListFromSDK(ctx context.Context, sections []onepassword.ItemSection) (tfsdk.List, diag.Diagnostics) {
+	var result diag.Diagnostics
+	var models []itemSectionModel
+	for _, s := range sections {
 		if s.ID == "" && s.Title == "" {
 			continue
 		}
-		sections = append(sections, itemSectionModel{
+		models = append(models, itemSectionModel{
 			ID:    tfsdk.StringValue(s.ID),
 			Title: tfsdk.StringValue(s.Title),
 		})
 	}
-	if len(sections) > 0 {
-		sectionList, diags := tfsdk.ListValueFrom(ctx, tfsdk.ObjectType{AttrTypes: itemSectionObjectAttrs()}, sections)
-		result = append(result, diags...)
-		data.Sections = sectionList
-	} else {
-		data.Sections = tfsdk.ListNull(tfsdk.ObjectType{AttrTypes: itemSectionObjectAttrs()})
+	if len(models) == 0 {
+		return tfsdk.ListNull(tfsdk.ObjectType{AttrTypes: itemSectionObjectAttrs()}), result
 	}
-	data.Websites = modelWebsitesFromSDK(item.Websites)
-	return result
+	sectionList, diags := tfsdk.ListValueFrom(ctx, tfsdk.ObjectType{AttrTypes: itemSectionObjectAttrs()}, models)
+	result = append(result, diags...)
+	return sectionList, result
 }
 
 func modelWebsitesFromSDK(websites []onepassword.Website) []itemWebsiteModel {

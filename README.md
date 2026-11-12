@@ -7,10 +7,13 @@ A personal 1Password Terraform provider built for full compliance with the
 ## Features
 
 - **Provider auth**: 1Password service account token
-  (`OP_SERVICE_ACCOUNT_TOKEN`) or desktop app integration
-  (`OP_DESKTOP_ACCOUNT_NAME`).
+  (`OP_SERVICE_ACCOUNT_TOKEN`), desktop app integration
+  (`OP_DESKTOP_ACCOUNT_NAME`), or — when neither is set — the local
+  `op` CLI's default account automatically.
 - **Resources**: `op_vault`, `op_item` (fields, sections,
-  tags, notes; `delete_mode = "delete" | "archive"`).
+  tags, notes; `delete_mode = "delete" | "archive"`), and one
+  `op_item_<category>` per item category (e.g. `op_item_login`,
+  `op_item_ssh_key`) with typed template fields plus `custom_fields`.
 - **Data sources**: `op_vault`, `op_vaults`,
   `op_item`.
 - **Ephemeral resource**: `op_secret_ref` resolves `op://` secret

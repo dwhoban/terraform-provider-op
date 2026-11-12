@@ -19,8 +19,26 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 
 func testAccPreCheck(t *testing.T) {
 	t.Helper()
-	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") == "" && os.Getenv("OP_DESKTOP_ACCOUNT_NAME") == "" {
-		t.Skip("OP_SERVICE_ACCOUNT_TOKEN or OP_DESKTOP_ACCOUNT_NAME not set; skipping acceptance test")
+	if os.Getenv("OP_SERVICE_ACCOUNT_TOKEN") != "" || desktopAccountName() != "" {
+		return
+	}
+	t.Skip("OP_SERVICE_ACCOUNT_TOKEN or a signed-in `op` account not set; skipping acceptance test")
+}
+
+func TestFirstOPAccountUUID(t *testing.T) {
+	cases := []struct {
+		name string
+		data string
+		want string
+	}{
+		{name: "first account uuid", data: `[{"account_uuid":"AAA"},{"account_uuid":"BBB"}]`, want: "AAA"},
+		{name: "empty list", data: `[]`, want: ""},
+		{name: "invalid json", data: `not json`, want: ""},
+	}
+	for _, tc := range cases {
+		if got := firstOPAccountUUID([]byte(tc.data)); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sync"
 	"testing"
 
 	"github.com/1password/onepassword-sdk-go"
@@ -35,8 +36,17 @@ func authOptions() []onepassword.ClientOption {
 	if token := os.Getenv("OP_SERVICE_ACCOUNT_TOKEN"); token != "" {
 		return []onepassword.ClientOption{onepassword.WithServiceAccountToken(token)}
 	}
-	return []onepassword.ClientOption{onepassword.WithDesktopAppIntegration(os.Getenv("OP_DESKTOP_ACCOUNT_NAME"))}
+	return []onepassword.ClientOption{onepassword.WithDesktopAppIntegration(desktopAccountName())}
 }
+
+var desktopAccountName = sync.OnceValue(func() string {
+	if name := os.Getenv("OP_DESKTOP_ACCOUNT_NAME"); name != "" {
+		return name
+	}
+	// Fall back to the local `op` CLI's default account so tests run
+	// without configuration when the desktop app is signed in.
+	return defaultOPAccountName()
+})
 
 func testAccVaultID(t *testing.T) string {
 	t.Helper()
@@ -65,7 +75,7 @@ func TestAccItem_disappears(t *testing.T) {
 			{
 				Config: testAccItemConfigVault(vaultID, rName),
 				ConfigStateChecks: []statecheck.StateCheck{
-					deleteItemOutOfBand(t, vaultID, rName),
+					deleteItemOutOfBand(t, vaultID, rName, "op_item.test"),
 				},
 				ExpectNonEmptyPlan: true,
 			},
@@ -74,15 +84,16 @@ func TestAccItem_disappears(t *testing.T) {
 }
 
 type deleteItemCheck struct {
-	t     *testing.T
-	vault string
-	title string
+	t       *testing.T
+	vault   string
+	title   string
+	address string
 }
 
 func (d deleteItemCheck) CheckState(ctx context.Context, req statecheck.CheckStateRequest, resp *statecheck.CheckStateResponse) {
 	itemID := ""
 	for _, r := range req.State.Values.RootModule.Resources {
-		if r.Address == "op_item.test" {
+		if r.Address == d.address {
 			if v, ok := r.AttributeValues["id"].(string); ok {
 				itemID = v
 			}
@@ -90,7 +101,7 @@ func (d deleteItemCheck) CheckState(ctx context.Context, req statecheck.CheckSta
 		}
 	}
 	if itemID == "" {
-		resp.Error = fmt.Errorf("op_item.test not found in state")
+		resp.Error = fmt.Errorf("%s not found in state", d.address)
 		return
 	}
 	if err := testAccClient(d.t).Items().Delete(ctx, d.vault, itemID); err != nil {
@@ -98,8 +109,8 @@ func (d deleteItemCheck) CheckState(ctx context.Context, req statecheck.CheckSta
 	}
 }
 
-func deleteItemOutOfBand(t *testing.T, vaultID, title string) statecheck.StateCheck {
-	return deleteItemCheck{t: t, vault: vaultID, title: title}
+func deleteItemOutOfBand(t *testing.T, vaultID, title, address string) statecheck.StateCheck {
+	return deleteItemCheck{t: t, vault: vaultID, title: title, address: address}
 }
 
 func testAccItemConfigVault(vaultID, rName string) string {

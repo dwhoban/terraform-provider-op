@@ -1,11 +1,11 @@
 action "op_generate_password" "rotate_db" {
   config {
-    mode             = "random"
-    length           = 32
-    include_symbols  = true
-    vault_id         = op_vault.example.id
-    item_id          = op_item.db.id
-    field_title      = "password"
+    mode            = "random"
+    length          = 32
+    include_symbols = true
+    vault_id        = op_vault.example.id
+    item_id         = op_item.db.id
+    field_title     = "password"
   }
 }
 

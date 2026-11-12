@@ -24,6 +24,6 @@ provider "op" {
 
 ### Optional
 
-- `desktop_account_name` (String) 1Password account name (or UUID) for desktop app integration. May also be set via the `OP_DESKTOP_ACCOUNT_NAME` environment variable.
+- `desktop_account_name` (String) 1Password account name (or UUID) for desktop app integration. May also be set via the `OP_DESKTOP_ACCOUNT_NAME` environment variable. When unset, the local `op` CLI's default account is used.
 - `integration_name` (String) Integration name reported to 1Password. Defaults to `terraform-provider-op`.
 - `service_account_token` (String, Sensitive) 1Password service account token. May also be set via the `OP_SERVICE_ACCOUNT_TOKEN` environment variable. Takes precedence over desktop app integration.

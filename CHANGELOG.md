@@ -2,7 +2,8 @@
 
 FEATURES:
 
-- resource/op_item: generate_ssh_key (ed25519, rsa2048, rsa3072, rsa4096) generates the private key and lets 1Password derive public key/fingerprint/key type; validated with a live apply
+- resource/op_item_*: one dedicated resource per creatable item category (21, e.g. op_item_login, op_item_ssh_key) exposing each category's default template fields as typed attributes plus custom_fields; typed field IDs/titles/sections mirror `op item template get` dumps. The Email item's `provider` field is exposed as `email_provider` because Terraform reserves `provider` as an attribute name. No Document or Person resources: the API rejects creating them (use `op_item`)
+- provider: when no credentials are configured, fall back to the local `op` CLI's default account for desktop app integration (no `OP_DESKTOP_ACCOUNT_NAME` needed for local execution)
 - resource/op_item: fix crash and plan/state inconsistencies (SDK details variant dispatch, null normalization for tags/sections/notes/websites, Optional+Computed fields/sections)
 
 - action/op_generate_password: generate random, PIN, or memorable passwords and write them into an item field

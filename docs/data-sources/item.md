@@ -35,11 +35,35 @@ Retrieves a 1Password item by vault and item ID. Returned field values are sensi
 
 Read-Only:
 
+- `address` (Attributes) Address details for `Address` fields. (see [below for nested schema](#nestedatt--fields--address))
 - `id` (String) Field ID.
 - `section_id` (String) Section the field belongs to.
+- `ssh_key` (Attributes) SSH key attributes for `SshKey` fields. (see [below for nested schema](#nestedatt--fields--ssh_key))
 - `title` (String) Field label.
 - `type` (String) Field type.
 - `value` (String, Sensitive) Field value.
+
+<a id="nestedatt--fields--address"></a>
+### Nested Schema for `fields.address`
+
+Read-Only:
+
+- `city` (String) City.
+- `country` (String) Country.
+- `state` (String) State.
+- `street` (String) Street.
+- `zip` (String) ZIP / postal code.
+
+
+<a id="nestedatt--fields--ssh_key"></a>
+### Nested Schema for `fields.ssh_key`
+
+Read-Only:
+
+- `fingerprint` (String) Key fingerprint.
+- `key_type` (String) Key type, e.g. `Ed25519` or `RSA, 4096-bit`.
+- `public_key` (String) Public key.
+
 
 
 <a id="nestedatt--sections"></a>

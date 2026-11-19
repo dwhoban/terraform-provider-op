@@ -89,7 +89,9 @@ func (d *vaultsDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	overviews, err := d.client.Vaults().List(ctx, onepassword.VaultListParams{})
+	// Without DecryptDetails the SDK returns the placeholder title "[Encrypted]".
+	decrypt := true
+	overviews, err := d.client.Vaults().List(ctx, onepassword.VaultListParams{DecryptDetails: &decrypt})
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error listing Vaults",

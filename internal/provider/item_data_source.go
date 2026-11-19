@@ -32,7 +32,7 @@ type itemDataSourceModel struct {
 	Category tfsdk.String       `tfsdk:"category"`
 	Notes    tfsdk.String       `tfsdk:"notes"`
 	Tags     tfsdk.List         `tfsdk:"tags"`
-	Fields   []itemFieldModel   `tfsdk:"fields"`
+	Fields   tfsdk.List         `tfsdk:"fields"`
 	Sections []itemSectionModel `tfsdk:"sections"`
 	Version  tfsdk.Int64        `tfsdk:"version"`
 }
@@ -48,6 +48,26 @@ func itemFieldsDataSourceAttribute() schema.ListNestedAttribute {
 				"section_id": schema.StringAttribute{Computed: true, MarkdownDescription: "Section the field belongs to."},
 				"type":       schema.StringAttribute{Computed: true, MarkdownDescription: "Field type."},
 				"value":      schema.StringAttribute{Computed: true, Sensitive: true, MarkdownDescription: "Field value."},
+				"address": schema.SingleNestedAttribute{
+					Computed:            true,
+					MarkdownDescription: "Address details for `Address` fields.",
+					Attributes: map[string]schema.Attribute{
+						"street":  schema.StringAttribute{Computed: true, MarkdownDescription: "Street."},
+						"city":    schema.StringAttribute{Computed: true, MarkdownDescription: "City."},
+						"state":   schema.StringAttribute{Computed: true, MarkdownDescription: "State."},
+						"zip":     schema.StringAttribute{Computed: true, MarkdownDescription: "ZIP / postal code."},
+						"country": schema.StringAttribute{Computed: true, MarkdownDescription: "Country."},
+					},
+				},
+				"ssh_key": schema.SingleNestedAttribute{
+					Computed:            true,
+					MarkdownDescription: "SSH key attributes for `SshKey` fields.",
+					Attributes: map[string]schema.Attribute{
+						"public_key":  schema.StringAttribute{Computed: true, MarkdownDescription: "Public key."},
+						"fingerprint": schema.StringAttribute{Computed: true, MarkdownDescription: "Key fingerprint."},
+						"key_type":    schema.StringAttribute{Computed: true, MarkdownDescription: "Key type, e.g. `Ed25519` or `RSA, 4096-bit`."},
+					},
+				},
 			},
 		},
 	}
@@ -129,20 +149,9 @@ func (d *itemDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	resp.Diagnostics.Append(diags...)
 	data.Tags = tagsList
 
-	fields := make([]itemFieldModel, 0, len(item.Fields))
-	for _, f := range item.Fields {
-		field := itemFieldModel{
-			ID:        tfsdk.StringValue(f.ID),
-			Title:     tfsdk.StringValue(f.Title),
-			FieldType: tfsdk.StringValue(string(f.FieldType)),
-			Value:     tfsdk.StringValue(f.Value),
-		}
-		if f.SectionID != nil {
-			field.SectionID = tfsdk.StringValue(*f.SectionID)
-		}
-		fields = append(fields, field)
-	}
-	data.Fields = fields
+	fieldList, diags := itemFieldListFromSDK(item.Fields)
+	resp.Diagnostics.Append(diags...)
+	data.Fields = fieldList
 
 	sections := make([]itemSectionModel, 0, len(item.Sections))
 	for _, s := range item.Sections {

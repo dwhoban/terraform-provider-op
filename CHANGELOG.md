@@ -1,3 +1,10 @@
+## 0.1.1 (unreleased)
+
+BUG FIXES:
+
+- data-source/op_item: fix `Value Conversion Error` on every read; `fields` now declares the `address` and `ssh_key` attributes that field values carry
+- data-source/op_vaults: return real vault titles instead of the `[Encrypted]` placeholder by requesting decrypted details from the SDK
+
 ## 0.1.0 (unreleased)
 
 FEATURES:

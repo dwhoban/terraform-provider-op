@@ -3,8 +3,10 @@ default: fmt lint install generate
 build:
 	go build -v ./...
 
+# Build into $(GOPATH)/bin (not GOBIN, which may sit inside a versioned Go
+# toolchain dir) so a ~/.terraformrc dev_overrides entry stays stable.
 install: build
-	go install -v ./...
+	go build -v -o $(shell go env GOPATH)/bin/terraform-provider-op .
 
 lint:
 	golangci-lint run

@@ -1,11 +1,16 @@
-## 0.1.1 (unreleased)
+## 0.1.1 (November 19, 2026)
 
 BUG FIXES:
 
 - data-source/op_item: fix `Value Conversion Error` on every read; `fields` now declares the `address` and `ssh_key` attributes that field values carry
 - data-source/op_vaults: return real vault titles instead of the `[Encrypted]` placeholder by requesting decrypted details from the SDK
 
-## 0.1.0 (unreleased)
+SECURITY:
+
+- deps: bump golang.org/x/crypto to v0.59.0, google.golang.org/grpc to v1.83.2, golang.org/x/net to v0.63.0 (resolves Dependabot alerts for x/crypto/ssh and gRPC-Go HTTP/2 / xDS advisories)
+- build: build with Go 1.26.11 (go directive and goreleaser-cross v1.26.10 image) to pick up standard library security fixes
+
+## 0.1.0 (November 12, 2026)
 
 FEATURES:
 

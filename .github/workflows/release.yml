@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     # goreleaser-cross ships Go, goreleaser, gpg and the osxcross toolchain
     # (o64-clang/oa64-clang) needed to build darwin binaries with CGO.
-    # Keep the tag in step with the go directive in go.mod.
+    # Keep the tag in step with the go directive in go.mod (newest available image; Go auto-switches to the go.mod toolchain if newer).
     container:
-      image: ghcr.io/goreleaser/goreleaser-cross:v1.25.8
+      image: ghcr.io/goreleaser/goreleaser-cross:v1.26.10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
